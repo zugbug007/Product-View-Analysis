@@ -1,0 +1,74 @@
+---
+title: "Product View Analysis"
+output: html_notebook
+---
+  
+  This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+```{r message=TRUE}
+#install and load package arules
+library(arules)
+library(arulesViz)
+library(readxl)
+library(plyr)
+library(stringr)
+library(dplyr)
+library(arulesViz)
+library(colorspace)
+library(RColorBrewer)
+library(shinythemes)
+library(readr)
+library(ExPanDaR)
+```
+
+```{r}
+#October 2019
+retail <- read_csv("../Data/Raw/Report.csv", col_types = cols(`MCVID (v29) (evar29)` = col_character()))
+colnames(retail) <- c("mcvid","evar66", "product", "views")
+retail_backup <- retail
+retail$mcvid <- strtrim(retail$mcvid, 8)
+retail$mcvid <- as.numeric(retail$mcvid)
+retail$views<- NULL
+retail <- retail[complete.cases(retail), ]
+InvoiceNo <- retail$mcvid
+cbind(retail,InvoiceNo)
+glimpse(retail)
+```
+
+
+```{r}
+transactionData <- ddply(retail,c("InvoiceNo"),function(df1)paste(df1$product,collapse = ","))
+#Remove unneeded columns
+transactionData$InvoiceNo <- NULL
+
+#Rename column to items
+colnames(transactionData) <- c("items")
+
+#Check format
+write.csv(transactionData,"../Outputs/Product_views.csv", quote = FALSE, row.names = FALSE)
+```
+
+
+```{r}
+#Read in the transaction data into basket format
+tr <- read.transactions('../Outputs/Product_views.csv', format = 'basket', sep=',')
+#Check transactions
+df_tr <- as(tr, "data.frame")
+#Show summary of the transaction data
+summary(tr)
+```
+
+
+```{r}
+#Generate the Apriori Rules
+# Min Support as 0.001, confidence as 0.001.
+association.rules <- apriori(tr, parameter = list(supp=0.001, conf=0.001,maxlen=10, minlen = 1))
+summary(association.rules)
+df_association.rules<- as(association.rules, "data.frame")
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#Do the Magic, Abracadabra!
+ruleExplorer(association.rules)
+```
